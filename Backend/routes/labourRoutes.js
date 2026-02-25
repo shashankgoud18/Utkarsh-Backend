@@ -2,19 +2,19 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  createProfile,
-  getQuestions,
-  submitAnswers,
   searchLabour,
   getSingleLabour,
-  updateLabour
 } = require("../controllers/labourController");
+const {
+  startIntake,
+  submitAnswers,
+} = require("../controllers/conversationController");
 
-router.post("/create", createProfile);
-router.post("/:id/questions", getQuestions);
-router.post("/:id/answers", submitAnswers);
+
 router.get("/search", searchLabour);
 router.get("/:id", getSingleLabour);
-router.put("/:id", updateLabour);
+
+router.post("/intake/start", startIntake);
+router.post("/intake/:sessionId/answers", submitAnswers);
 
 module.exports = router;

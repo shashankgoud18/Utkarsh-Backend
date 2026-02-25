@@ -12,6 +12,7 @@ const labourProfileSchema = new mongoose.Schema(
   {
     name: String,
     phone: String,
+    age: Number,
     trade: String,
     experience: Number,
     location: String,
@@ -21,11 +22,31 @@ const labourProfileSchema = new mongoose.Schema(
       max: Number,
     },
 
+    skills: [String],
+    languages: [String],
+    availability: String,
+
     questions: [String],
     answers: [answerSchema],
     totalScore: Number,
     badge: String,
     aiSummary: String,
+    
+    // Detailed evaluation fields
+    skillBreakdown: {
+      technical: Number,
+      safety: Number,
+      experience: Number,
+      problemSolving: Number,
+      communication: Number,
+    },
+    strengths: [String],
+    weaknesses: [String],
+    recommendations: [String],
+    workReadiness: String,
+    confidenceLevel: String,
+    hiringRecommendation: String,
+    
     status: {
       type: String,
       default: "pending",
