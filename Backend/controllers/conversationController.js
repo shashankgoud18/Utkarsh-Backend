@@ -20,25 +20,16 @@ const startIntake = async (req, res, next) => {
     const language = await detectLanguage(message);
     const basicQuestions = await generateIntakeQuestions(message, language);
 
-    // Generate work questions based on trade hint from message
+    // Generate work questions based on trade hint from message (in user's language)
     const workQuestions = await generateWorkQuestions(
       message,
       0,
       language
     );
 
-    const fallbackWorkQuestions = [
-      `What are the main tasks you do as a ${message}?`,
-      `Which tools do you use most in ${message} work?`,
-      `How do you ensure safety while working as a ${message}?`,
-      `Explain how you handle a common problem in ${message} work.`,
-      `How do you check quality in your work?`,
-      `Describe a difficult job you completed.`,
-    ];
-
     const allQuestions = [
       ...basicQuestions,
-      ...(workQuestions.length ? workQuestions : fallbackWorkQuestions),
+      ...workQuestions, // Always has 6 questions with fallback
     ];
 
     const session = await ConversationSession.create({
@@ -155,9 +146,33 @@ const submitAnswers = async (req, res, next) => {
     session.answers = evaluatedAnswers;
     await session.save();
 
+    // Return lean profile without questions and answers (they're already in DB)
     return res.json({
       completed: true,
-      profile,
+      profile: {
+        _id: profile._id,
+        name: profile.name,
+        phone: profile.phone,
+        age: profile.age,
+        trade: profile.trade,
+        experience: profile.experience,
+        location: profile.location,
+        salaryRange: profile.salaryRange,
+        skills: profile.skills,
+        languages: profile.languages,
+        availability: profile.availability,
+        aiSummary: profile.aiSummary,
+        status: profile.status,
+        totalScore: profile.totalScore,
+        badge: profile.badge,
+        skillBreakdown: profile.skillBreakdown,
+        strengths: profile.strengths,
+        weaknesses: profile.weaknesses,
+        recommendations: profile.recommendations,
+        workReadiness: profile.workReadiness,
+        confidenceLevel: profile.confidenceLevel,
+        hiringRecommendation: profile.hiringRecommendation,
+      },
       scoreOutOf100: evaluation.totalScore,
     });
   } catch (error) {

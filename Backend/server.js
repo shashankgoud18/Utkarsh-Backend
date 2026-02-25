@@ -11,7 +11,7 @@ app.use(express.json());
 
 connectDB();
 
-app.use("/api/labour", labourRoutes);
+app.use("/api/", labourRoutes);
 
 app.use((err, req, res, next) => {
   console.error("FULL ERROR:", err);
