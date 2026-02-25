@@ -7,6 +7,7 @@ const answerSchema = new mongoose.Schema({
   reason: String,
 });
 
+
 const labourProfileSchema = new mongoose.Schema(
   {
     name: String,
@@ -14,6 +15,12 @@ const labourProfileSchema = new mongoose.Schema(
     trade: String,
     experience: Number,
     location: String,
+
+    salaryRange: {
+      min: Number,
+      max: Number,
+    },
+
     questions: [String],
     answers: [answerSchema],
     totalScore: Number,
