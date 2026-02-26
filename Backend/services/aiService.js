@@ -24,17 +24,50 @@ const cleanJsonText = (text) => {
   return text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 };
 
-// MISSING FUNCTION - ADD THIS
-const extractTradeFromMessage = (message) => {
-  const trades = [
-    'plumber', 'electrician', 'carpenter', 'painter', 'mason', 'welder', 
-    'mechanic', 'driver', 'cook', 'maid', 'gardener', 'security'
-  ];
-  const lowerMsg = message.toLowerCase();
-  for (const trade of trades) {
-    if (lowerMsg.includes(trade)) return trade;
+const extractTradeFromMessage = async (message) => {
+  const prompt = `
+Extract the trade/occupation/work type from this message.
+The message can be in Hindi, English, or transliterated Hindi.
+Return ONLY the trade name in English, in lowercase, as a single word or short phrase (max 2-3 words).
+Examples: "plumber", "electrician", "mason", "carpenter", "driver", "cook", "security guard", "welder", "tailor", "cleaner", etc.
+
+If no specific trade is mentioned, return "worker".
+
+Message: "${message}"
+
+Return ONLY the trade name, nothing else.
+`;
+
+  try {
+    const text = await callGemini(prompt);
+    const trade = text.toLowerCase().trim().split('\n')[0].trim();
+    // Clean up any extra punctuation or formatting
+    return trade.replace(/['".,;:]/g, '').trim() || 'worker';
+  } catch (error) {
+    console.log("⚠️  Trade extraction API failed, using fallback");
+    
+    // Simple fallback: check for common keywords
+    const lowerMsg = message.toLowerCase();
+    const commonTrades = {
+      'plumber': ['plumber', 'nalsaz', 'नलसाज़'],
+      'electrician': ['electrician', 'bijli', 'बिजली'],
+      'mason': ['mason', 'mesthri', 'mistri', 'मिस्त्री'],
+      'carpenter': ['carpenter', 'badhoi', 'बढ़ई'],
+      'painter': ['painter', 'rang', 'पेंटर'],
+      'driver': ['driver', 'चालक'],
+      'cook': ['cook', 'bawarchi', 'बावर्ची'],
+    };
+    
+    for (const [trade, keywords] of Object.entries(commonTrades)) {
+      for (const keyword of keywords) {
+        if (lowerMsg.includes(keyword)) {
+          return trade;
+        }
+      }
+    }
+    
+    return 'worker';
   }
-  return 'worker';
 };
 
 const detectLanguage = async (message) => {

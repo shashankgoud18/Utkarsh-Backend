@@ -15,28 +15,12 @@ const sessionSchema = new mongoose.Schema({
     type: String,
   },
   questions: [String],
-  answers: [String],  // Raw answer strings
-  workQuestions: [String],
-  workAnswers: [
-    {
-      question: String,
-      answer: String,
-      score: Number,
-      reason: String,
-    },
-  ],
-  phase: {
-    type: String,
-    enum: ["basic", "work", "completed"],
-    default: "basic",
-  },
-  score: Number,
+  answers: [String],
   status: {
     type: String,
     enum: ["collecting", "completed"],
     default: "collecting",
   },
-  extractedData: Object,
 });
 
 module.exports = mongoose.model("ConversationSession", sessionSchema);

@@ -19,7 +19,7 @@ const startIntake = async (req, res, next) => {
     }
 
     const language = await detectLanguage(message);
-    const trade = extractTradeFromMessage(message);
+    const trade = await extractTradeFromMessage(message);
     const basicQuestions = await generateIntakeQuestions(message, language);
     const workQuestions = await generateWorkQuestions(trade, 0, language);
 
