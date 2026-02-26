@@ -185,10 +185,22 @@ Answers: ${answersText}
     const answerMatches = answersText.match(/A:\s*([^\n]+)/g) || [];
     const answers = answerMatches.map(match => match.replace(/A:\s*/, '').trim());
     
-    const name = answers[0] || "";
-    const age = answers[1] ? parseInt(answers[1]) : 0;
-    const phone = answers[2] || "";
-    const experience = answers[3] ? parseInt(answers[3]) : 0;
+    // Clean name - remove "मेरा नाम", "my name is", etc.
+    let name = answers[0] || "";
+    name = name.replace(/^(मेरा नाम |मेरा नाम है |नाम है |मेरा |my name is |my name's |i am |i'm |name is |this is )/i, '');
+    name = name.replace(/\s*है\s*$/i, '').trim();
+    
+    // Clean phone - extract digits only
+    let phone = answers[2] || "";
+    const phoneDigits = phone.replace(/\D/g, '');
+    phone = phoneDigits.length > 10 ? phoneDigits.slice(-10) : phoneDigits;
+    
+    // Extract numbers from age and experience
+    const ageMatch = answers[1]?.match(/\d+/);
+    const age = ageMatch ? parseInt(ageMatch[0]) : 0;
+    
+    const expMatch = answers[3]?.match(/\d+/);
+    const experience = expMatch ? parseInt(expMatch[0]) : 0;
 
     return {
       name,

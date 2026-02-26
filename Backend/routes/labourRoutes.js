@@ -8,6 +8,7 @@ const {
 const {
   startIntake,
   submitAnswers,
+  submitInterview
 } = require("../controllers/conversationController");
 
 
@@ -15,6 +16,8 @@ router.get("/search", searchLabour);
 router.get("/:id", getSingleLabour);
 
 router.post("/intake/start", startIntake);
-router.post("/intake/:sessionId/answers", submitAnswers);
+//router.post("/intake/submit", submitAnswers);
+router.post("/submit", submitInterview);
+
 
 module.exports = router;
