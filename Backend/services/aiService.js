@@ -185,22 +185,10 @@ Answers: ${answersText}
     const answerMatches = answersText.match(/A:\s*([^\n]+)/g) || [];
     const answers = answerMatches.map(match => match.replace(/A:\s*/, '').trim());
     
-    // Clean name - remove "मेरा नाम", "my name is", etc.
-    let name = answers[0] || "";
-    name = name.replace(/^(मेरा नाम |मेरा नाम है |नाम है |मेरा |my name is |my name's |i am |i'm |name is |this is )/i, '');
-    name = name.replace(/\s*है\s*$/i, '').trim();
-    
-    // Clean phone - extract digits only
-    let phone = answers[2] || "";
-    const phoneDigits = phone.replace(/\D/g, '');
-    phone = phoneDigits.length > 10 ? phoneDigits.slice(-10) : phoneDigits;
-    
-    // Extract numbers from age and experience
-    const ageMatch = answers[1]?.match(/\d+/);
-    const age = ageMatch ? parseInt(ageMatch[0]) : 0;
-    
-    const expMatch = answers[3]?.match(/\d+/);
-    const experience = expMatch ? parseInt(expMatch[0]) : 0;
+    const name = answers[0] || "";
+    const age = answers[1] ? parseInt(answers[1]) : 0;
+    const phone = answers[2] || "";
+    const experience = answers[3] ? parseInt(answers[3]) : 0;
 
     return {
       name,
@@ -247,9 +235,23 @@ const generateWorkQuestions = async (trade, experience, language = "english") =>
 
   const prompt = `
 You are generating 6 short interview questions for a ${trade}.
-These questions should be about their work and skills - NOT testing them.
-Examples: "What are your main tasks?", "What tools do you use?", "Describe a difficult project"
-Questions must be simple and suitable for voice answers.
+
+Ask ONLY about their actual work experience and daily job responsibilities.
+
+The questions must:
+- Focus strictly on the work they do.
+- Ask about tasks, projects, tools, materials, work process, or type of jobs handled.
+- NOT test knowledge.
+- NOT evaluate skills.
+- NOT ask theoretical or technical exam-style questions.
+- NOT ask about strengths, weaknesses, or personal qualities.
+
+Questions must be simple, practical, and suitable for short voice answers.
+
+Examples:
+- "What kind of work do you usually do?"
+- "What tools do you use in your job?"
+- "What types of projects have you worked on?"
 ${languageInstruction}
 Return ONLY a JSON array of exactly 6 strings.
 `;
