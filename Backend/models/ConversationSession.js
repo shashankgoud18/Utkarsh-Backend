@@ -11,13 +11,11 @@ const sessionSchema = new mongoose.Schema({
     type: String,
     default: "english",
   },
+  trade: {
+    type: String,
+  },
   questions: [String],
-  answers: [
-    {
-      question: String,
-      answer: String,
-    },
-  ],
+  answers: [String],  // Raw answer strings
   workQuestions: [String],
   workAnswers: [
     {

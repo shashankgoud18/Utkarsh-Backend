@@ -6,35 +6,29 @@ const {
   generateWorkQuestions,
   evaluateWorkAnswers,
   detectLanguage,
+  extractTradeFromMessage,
 } = require("../services/aiService");
 
-// Get questions endpoint: user sends message → get all 10 questions (4 basic + 6 work)
+// START INTAKE - Get all 10 questions
 const startIntake = async (req, res, next) => {
   try {
     const { message } = req.body;
 
-    if (!message) {
-      return res.status(400).json({ message: "Message is required" });
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: "Message is required" });
     }
 
     const language = await detectLanguage(message);
+    const trade = extractTradeFromMessage(message);
     const basicQuestions = await generateIntakeQuestions(message, language);
+    const workQuestions = await generateWorkQuestions(trade, 0, language);
 
-    // Generate work questions based on trade hint from message (in user's language)
-    const workQuestions = await generateWorkQuestions(
-      message,
-      0,
-      language
-    );
-
-    const allQuestions = [
-      ...basicQuestions,
-      ...workQuestions, // Always has 6 questions with fallback
-    ];
+    const allQuestions = [...basicQuestions, ...workQuestions];
 
     const session = await ConversationSession.create({
       messages: [{ role: "user", content: message }],
       language,
+      trade,
       questions: allQuestions,
       answers: [],
       status: "collecting",
@@ -43,41 +37,46 @@ const startIntake = async (req, res, next) => {
     return res.json({
       sessionId: session._id,
       language,
+      trade,
       allQuestions,
       basicQuestionsCount: basicQuestions.length,
+      totalQuestions: allQuestions.length,
     });
   } catch (error) {
-    next(error);
+    console.error("=== START INTAKE ERROR ===");
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    res.status(500).json({ 
+      error: "Failed to start intake",
+      details: error.message 
+    });
   }
 };
 
-// Submit answers endpoint: user submits answers to all questions → get profile with score
+// SUBMIT ANSWERS - Get profile with evaluation
 const submitAnswers = async (req, res, next) => {
   try {
     const { sessionId, answers } = req.body;
 
     if (!sessionId || !Array.isArray(answers)) {
-      return res.status(400).json({
-        message: "sessionId and answers array are required",
-      });
+      return res.status(400).json({ error: "sessionId and answers array are required" });
     }
 
     const session = await ConversationSession.findById(sessionId);
     if (!session) {
-      return res.status(404).json({ message: "Session not found" });
+      return res.status(404).json({ error: "Session not found" });
     }
 
     const allQuestions = session.questions || [];
-    const basicQuestionsCount = 4; // First 4 are basic
+    const basicQuestionsCount = 4;
     const workQuestionsCount = allQuestions.length - basicQuestionsCount;
 
-    // Split into basic and work answers
     const basicAnswers = answers.slice(0, basicQuestionsCount);
     const workAnswers = answers.slice(basicQuestionsCount);
 
     // Extract profile from basic answers
     const basicAnswersText = basicAnswers
-      .map((ans, idx) => `Q: ${allQuestions[idx]}\nA: ${ans}`)
+      .map((ans, idx) => `Q${idx + 1}: ${allQuestions[idx]}\nA: ${ans}`)
       .join("\n");
 
     const extracted = await extractProfileFromText(
@@ -87,100 +86,78 @@ const submitAnswers = async (req, res, next) => {
     );
 
     // Evaluate work answers
-    const workQuestions = allQuestions.slice(
-      basicQuestionsCount,
-      basicQuestionsCount + workQuestionsCount
-    );
-
+    const workQuestions = allQuestions.slice(basicQuestionsCount, basicQuestionsCount + workQuestionsCount);
     const evaluation = await evaluateWorkAnswers(
-      extracted.trade || session.messages?.[0]?.content || "worker",
+      extracted.trade || session.trade || "worker",
       workQuestions,
       workAnswers,
       session.language || "english"
     );
 
-    // Combine all answers with scores
+    // Create evaluated answers array
     const evaluatedAnswers = [
       ...basicAnswers.map((ans, idx) => ({
         question: allQuestions[idx],
         answer: ans,
         score: 10,
-        reason: "Basic information verified",
+        reason: "Basic information collected",
       })),
-      ...(evaluation.evaluations || workAnswers.map((ans, idx) => ({
-        question: workQuestions[idx],
-        answer: ans,
-        score: 5,
-        reason: "Work answer assessed",
-      }))),
+      ...(evaluation.evaluations || []),
     ];
 
-    // Create profile with full evaluation
+    // Create profile
     const profile = await LabourProfile.create({
-      name: extracted.name,
-      phone: extracted.phone,
-      age: extracted.age,
-      trade: extracted.trade || session.messages?.[0]?.content,
-      experience: extracted.experience,
-      location: extracted.location,
+      name: extracted.name || basicAnswers[0] || "",
+      phone: extracted.phone || basicAnswers[2] || "",
+      age: extracted.age || parseInt(basicAnswers[1]) || 0,
+      trade: session.trade || extracted.trade || "worker",
+      experience: extracted.experience || parseInt(basicAnswers[3]) || 0,
+      location: extracted.location || "",
       salaryRange: extracted.salaryRange,
-      skills: extracted.skills,
-      languages: extracted.languages,
-      availability: extracted.availability,
-      aiSummary: evaluation.summary || extracted.notes,
+      skills: extracted.skills || [],
+      languages: extracted.languages || [],
+      availability: extracted.availability || "",
+      aiSummary: evaluation.summary || extracted.notes || "",
       status: "evaluated",
       questions: allQuestions,
       answers: evaluatedAnswers,
-      totalScore: evaluation.totalScore,
-      badge: evaluation.badge,
-      skillBreakdown: evaluation.skillBreakdown,
-      strengths: evaluation.strengths,
-      weaknesses: evaluation.weaknesses,
-      recommendations: evaluation.recommendations,
-      workReadiness: evaluation.workReadiness,
-      confidenceLevel: evaluation.confidenceLevel,
-      hiringRecommendation: evaluation.hiringRecommendation,
+      totalScore: evaluation.totalScore || 0,
+      badge: evaluation.badge || "Bronze",
+      skillBreakdown: evaluation.skillBreakdown || {},
+      strengths: evaluation.strengths || [],
+      weaknesses: evaluation.weaknesses || [],
+      recommendations: evaluation.recommendations || [],
+      workReadiness: evaluation.workReadiness || "Entry Level",
+      confidenceLevel: evaluation.confidenceLevel || "Medium",
+      hiringRecommendation: evaluation.hiringRecommendation || "Maybe",
     });
 
+    // Update session
     session.status = "completed";
-    session.answers = evaluatedAnswers;
+    session.answers = answers;
     await session.save();
 
-    // Return lean profile without questions and answers (they're already in DB)
+    // Return lean profile
+    const leanProfile = profile.toObject();
+    delete leanProfile.questions;
+    delete leanProfile.answers;
+
     return res.json({
       completed: true,
-      profile: {
-        _id: profile._id,
-        name: profile.name,
-        phone: profile.phone,
-        age: profile.age,
-        trade: profile.trade,
-        experience: profile.experience,
-        location: profile.location,
-        salaryRange: profile.salaryRange,
-        skills: profile.skills,
-        languages: profile.languages,
-        availability: profile.availability,
-        aiSummary: profile.aiSummary,
-        status: profile.status,
-        totalScore: profile.totalScore,
-        badge: profile.badge,
-        skillBreakdown: profile.skillBreakdown,
-        strengths: profile.strengths,
-        weaknesses: profile.weaknesses,
-        recommendations: profile.recommendations,
-        workReadiness: profile.workReadiness,
-        confidenceLevel: profile.confidenceLevel,
-        hiringRecommendation: profile.hiringRecommendation,
-      },
-      scoreOutOf100: evaluation.totalScore,
+      profile: leanProfile,
+      scoreOutOf100: evaluation.totalScore || 0,
     });
   } catch (error) {
-    next(error);
+    console.error("=== SUBMIT ANSWERS ERROR ===");
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    console.error("Request body:", req.body);
+    res.status(500).json({ 
+      error: "Failed to process answers",
+      details: error.message,
+      hint: "Check server logs for details"
+    });
   }
 };
 
-module.exports = {
-  startIntake,
-  submitAnswers,
-};
+module.exports = { startIntake, submitAnswers };
